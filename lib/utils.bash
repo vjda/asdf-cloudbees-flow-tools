@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for cloudbees-flow-tools.
-GH_REPO="https://www.cloudbees.com/products/cloudbees-cdro"
+TOOL_SITE="https://downloads.cloudbees.com/cloudbees-cd"
 TOOL_NAME="cloudbees-flow-tools"
 TOOL_TEST="ectool --version"
 
@@ -14,44 +13,81 @@ fail() {
 
 curl_opts=(-fsSL)
 
-# NOTE: You might want to remove this if cloudbees-flow-tools is not hosted on GitHub releases.
-if [ -n "${GITHUB_API_TOKEN:-}" ]; then
-	curl_opts=("${curl_opts[@]}" -H "Authorization: token $GITHUB_API_TOKEN")
-fi
-
-sort_versions() {
-	sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
-		LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
-}
-
-list_github_tags() {
-	git ls-remote --tags --refs "$GH_REPO" |
-		grep -o 'refs/tags/.*' | cut -d/ -f3- |
-		sed 's/^v//' # NOTE: You might want to adapt this sed to remove non-version strings from tags
-}
-
 list_all_versions() {
-	# TODO: Adapt this. By default we simply list the tag names from GitHub releases.
-	# Change this function if cloudbees-flow-tools has other means of determining installable versions.
-	list_github_tags
+	curl "${curl_opts[@]}" "$TOOL_SITE/" | grep -Eo 'Release[^"]+/index.html' | sed -r 's@^[^/]+/|/index.html@@g'
 }
 
 download_release() {
-	local version filename url
+	local version filename url release_version
 	version="$1"
 	filename="$2"
 
-	# TODO: Adapt the release URL convention for cloudbees-flow-tools
-	url="$GH_REPO/archive/v${version}.tar.gz"
+	case "$(uname -s)" in
+	Linux)
+		if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
+			url="$(build_download_url "$version" "linux_ARM" "tar.gz")"
+		else
+			url="$(build_download_url "$version" "linux" "tar.gz")"
+		fi
+		;;
+	Darwin)
+		url="$(build_download_url "$version" "mac" "tar.gz")"
+		;;
+	MINGW* | MSYS* | CYGWIN*)
+		url="$(build_download_url "$version" "windows" "zip")"
+		;;
+	*)
+		fail "Unsupported OS: $(uname -s)"
+		;;
+	esac
 
 	echo "* Downloading $TOOL_NAME release $version..."
 	curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
 }
 
+uncompress_file() {
+	local file_path dest_dir mime_type
+	file_path="$1"
+	dest_dir="$2"
+
+	mime_type="$(file -b --mime-type "$file_path")"
+
+	case "$mime_type" in
+	application/zip)
+		unzip -o "$file_path" -d "$dest_dir" || fail "Could not extract $file_path"
+		;;
+	application/gzip)
+		tar -xzf "$file_path" -C "$dest_dir" --strip-components=1 || fail "Could not extract $file_path"
+		;;
+	*)
+		fail "Unsupported file type for $file_path"
+		;;
+	esac
+}
+
+build_download_url() {
+	local version os_variant file_ext release_version
+	version="$1"
+	os_variant="$2"
+	file_ext="$3"
+
+	# Example URL:
+	# https://downloads.cloudbees.com/cloudbees-cd/Release_2025.03/2025.03.1.179360/linux/CloudBeesFlowTools-2025.03.1.179360.tar.gz
+
+	# Variants:
+	# linux_ARM/CloudBeesFlowTools-2025.03.1.179360.tar.gz
+	# mac/CloudBeesFlowTools-2025.03.1.179360.tar.gz
+	# windows/CloudBeesFlowTools-2025.03.1.179360.zip
+
+	release_version=$(echo "$version" | cut -d. -f1,2)
+	echo "${TOOL_SITE}/Release_${release_version}/${version}/${os_variant}/CloudBeesFlowTools-${version}.${file_ext}"
+}
+
 install_version() {
 	local install_type="$1"
 	local version="$2"
-	local install_path="${3%/bin}/bin"
+	local install_path="${3%/bin}"
+	local tool_path="$install_path/bin"
 
 	if [ "$install_type" != "version" ]; then
 		fail "asdf-$TOOL_NAME supports release installs only"
@@ -61,10 +97,10 @@ install_version() {
 		mkdir -p "$install_path"
 		cp -r "$ASDF_DOWNLOAD_PATH"/* "$install_path"
 
-		# TODO: Assert cloudbees-flow-tools executable exists.
+		# Assert cloudbees-flow-tools executables exist.
 		local tool_cmd
 		tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
-		test -x "$install_path/$tool_cmd" || fail "Expected $install_path/$tool_cmd to be executable."
+		test -x "$tool_path/$tool_cmd" || fail "Expected $tool_path/$tool_cmd to be executable."
 
 		echo "$TOOL_NAME $version installation was successful!"
 	) || (

@@ -15,10 +15,21 @@
 
 # Dependencies
 
-**TODO: adapt this section**
+For building and using this plugin, the following tools are required:
 
 - `bash`, `curl`, `tar`, and [POSIX utilities](https://pubs.opengroup.org/onlinepubs/9699919799/idx/utilities.html).
-- `SOME_ENV_VAR`: set this environment variable in your shell config to load the correct version of tool x.
+
+The official packages are hosted on CloudBees' servers so you don't need set GITHUB_TOKEN or similar environment variables.
+
+# OS Support
+
+CloudBees Flow Tools has official packages for:
+
+- macOS
+- Linux (x86_64, aarch64)
+- Windows
+
+See [here](https://docs.cloudbees.com/docs/cloudbees-cd/latest/tools-and-utilities/cloudbees-tool-archive) for more details.
 
 # Install
 
@@ -46,8 +57,7 @@ asdf global cloudbees-flow-tools latest
 ectool --version
 ```
 
-Check [asdf](https://github.com/asdf-vm/asdf) readme for more instructions on how to
-install & manage versions.
+Check [asdf](https://github.com/asdf-vm/asdf) readme for more instructions on how to install & manage versions.
 
 # Contributing
 
@@ -57,4 +67,4 @@ Contributions of any kind welcome! See the [contributing guide](contributing.md)
 
 # License
 
-See [LICENSE](LICENSE) © [Víctor Javier Díaz Ayuste](https://github.com/vjda/)
+See [LICENSE](LICENSE) © [Victor J. Diaz Ayuste](https://github.com/vjda/)
