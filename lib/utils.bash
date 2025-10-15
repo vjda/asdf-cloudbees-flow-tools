@@ -18,26 +18,18 @@ list_all_versions() {
 }
 
 download_release() {
-	local version filename url release_version
+	local version filename url release_version os_variant
 	version="$1"
 	filename="$2"
 
-	case "$(uname -s)" in
-	Linux)
-		if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
-			url="$(build_download_url "$version" "linux_ARM" "tar.gz")"
-		else
-			url="$(build_download_url "$version" "linux" "tar.gz")"
-		fi
+	os_variant="$(detect_os_flavour)"
+
+	case "$os_variant" in
+	linux_ARM | linux | mac)
+		url="$(build_download_url "$version" "$os_variant" "tar.gz")"
 		;;
-	Darwin)
-		url="$(build_download_url "$version" "mac" "tar.gz")"
-		;;
-	MINGW* | MSYS* | CYGWIN*)
-		url="$(build_download_url "$version" "windows" "zip")"
-		;;
-	*)
-		fail "Unsupported OS: $(uname -s)"
+	windows)
+		url="$(build_download_url "$version" "$os_variant" "zip")"
 		;;
 	esac
 
@@ -45,19 +37,45 @@ download_release() {
 	curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
 }
 
+detect_os_flavour() {
+	local os arch
+
+	os="$(uname -s)"
+	arch="$(uname -m)"
+
+	case "$os" in
+	Linux)
+		if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+			echo "linux_ARM"
+		else
+			echo "linux"
+		fi
+		;;
+	Darwin)
+		echo "mac"
+		;;
+	MINGW* | MSYS* | CYGWIN*)
+		echo "windows"
+		;;
+	*)
+		fail "Unsupported OS: $(uname -s)"
+		;;
+	esac
+}
+
 uncompress_file() {
-	local file_path dest_dir mime_type
+	local file_path dest_dir os_variant
 	file_path="$1"
 	dest_dir="$2"
 
-	mime_type="$(file -b --mime-type "$file_path")"
+	os_variant="$(detect_os_flavour)"
 
-	case "$mime_type" in
-	application/zip)
-		unzip -o "$file_path" -d "$dest_dir" || fail "Could not extract $file_path"
-		;;
-	application/gzip)
+	case "$os_variant" in
+	linux* | mac)
 		tar -xzf "$file_path" -C "$dest_dir" --strip-components=1 || fail "Could not extract $file_path"
+		;;
+	windows)
+		unzip -o "$file_path" -d "$dest_dir" || fail "Could not extract $file_path"
 		;;
 	*)
 		fail "Unsupported file type for $file_path"
