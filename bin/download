@@ -19,4 +19,4 @@ download_release "$ASDF_INSTALL_VERSION" "$release_file"
 uncompress_file "$release_file" "$ASDF_DOWNLOAD_PATH"
 
 # Remove the downloaded file since we don't need to keep it
-rm "$release_file"
+rm -f "$release_file"

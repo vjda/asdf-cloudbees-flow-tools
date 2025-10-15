@@ -33,6 +33,10 @@ download_release() {
 		;;
 	esac
 
+
+	# Remove any existing file to avoid conflicts
+	rm -f "$filename"
+
 	echo "* Downloading $TOOL_NAME release $version..."
 	curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
 }
@@ -112,7 +116,10 @@ install_version() {
 	fi
 
 	(
+		# Make sure the install directory is clean
+		rm -rf "$install_path"
 		mkdir -p "$install_path"
+
 		cp -r "$ASDF_DOWNLOAD_PATH"/* "$install_path"
 
 		# Assert cloudbees-flow-tools executables exist.
@@ -125,4 +132,7 @@ install_version() {
 		rm -rf "$install_path"
 		fail "An error occurred while installing $TOOL_NAME $version."
 	)
+
+	# Clean up download directory after installation because some files are write-protected and cause asdf gets stuck before generating shims.
+	rm -fr "${ASDF_DOWNLOAD_PATH:?}/"*
 }
